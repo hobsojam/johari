@@ -251,41 +251,18 @@ describe('handleSubmitSelections', () => {
     assert.equal(ws.last().type, 'error');
   });
 
-  test('errors if selfSelections contains a word not in wordList', async () => {
-    await handleMessage(ws, {
-      type: 'submit_selections',
-      selfSelections: ['not-a-real-word'],
-      peerSelections: { 'peer-id': ['calm'] },
-    }, wss);
-    assert.equal(ws.last().type, 'error');
-  });
-
-  test('errors if peerSelections references an unknown participant', async () => {
-    await handleMessage(ws, {
-      type: 'submit_selections',
-      selfSelections: ['calm'],
-      peerSelections: { 'ghost-id': ['bold'] },
-    }, wss);
-    assert.equal(ws.last().type, 'error');
-  });
-
-  test('errors if peerSelections contains a word not in wordList', async () => {
-    await handleMessage(ws, {
-      type: 'submit_selections',
-      selfSelections: ['calm'],
-      peerSelections: { 'peer-id': ['not-a-real-word'] },
-    }, wss);
-    assert.equal(ws.last().type, 'error');
-  });
-
-  test('errors if participant tries to submit selections for themselves', async () => {
-    await handleMessage(ws, {
-      type: 'submit_selections',
-      selfSelections: ['calm'],
-      peerSelections: { 'submitter': ['bold'] },
-    }, wss);
-    assert.equal(ws.last().type, 'error');
-  });
+  const invalidPayloads = [
+    ['selfSelections contains a word not in wordList',        { selfSelections: ['not-a-real-word'], peerSelections: { 'peer-id': ['calm'] } }],
+    ['peerSelections references an unknown participant',      { selfSelections: ['calm'], peerSelections: { 'ghost-id': ['bold'] } }],
+    ['peerSelections contains a word not in wordList',        { selfSelections: ['calm'], peerSelections: { 'peer-id': ['not-a-real-word'] } }],
+    ['participant tries to submit selections for themselves', { selfSelections: ['calm'], peerSelections: { 'submitter': ['bold'] } }],
+  ];
+  for (const [label, payload] of invalidPayloads) {
+    test(`errors if ${label}`, async () => {
+      await handleMessage(ws, { type: 'submit_selections', ...payload }, wss);
+      assert.equal(ws.last().type, 'error');
+    });
+  }
 
   test('marks participant submitted and stores selections on valid submit', async () => {
     await handleMessage(ws, {
