@@ -14,7 +14,7 @@
   let prevPhase = null;
   $: {
     const newPhase = $sessionState?.phase ?? null;
-    if (newPhase && prevPhase !== null && newPhase !== prevPhase) {
+    if (newPhase && newPhase !== prevPhase) {
       tick().then(() => {
         const h1 = document.querySelector('h1[tabindex="-1"]');
         if (h1) h1.focus();

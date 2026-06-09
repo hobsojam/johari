@@ -54,7 +54,7 @@
   </section>
 
   <section aria-label="Timer" class="timer-row">
-    <label for="timer">Timer</label>
+    <label for="timer">Timer <span class="muted">(minutes, optional)</span></label>
     <div class="timer-input">
       <input
         id="timer"
@@ -63,9 +63,7 @@
         max="60"
         placeholder="—"
         bind:value={timerMinutes}
-        aria-label="Timer duration in minutes"
       />
-      <span class="muted">minutes (optional)</span>
     </div>
   </section>
 

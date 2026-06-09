@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { sessionState, myId, send } from '../ws.js';
   import WordGrid from './WordGrid.svelte';
 
@@ -12,6 +12,13 @@
 
   let selfSelections = [];
   let peerSelections = {};
+  let submittedCard;
+  let focusedAfterSubmit = false;
+  $: if (alreadySubmitted && !focusedAfterSubmit) {
+    focusedAfterSubmit = true;
+    tick().then(() => submittedCard?.focus());
+  }
+  $: if (!alreadySubmitted) focusedAfterSubmit = false;
 
   // Keep peerSelections keys in sync as participants list may change
   $: if ($sessionState) {
@@ -80,7 +87,7 @@
   </header>
 
   {#if alreadySubmitted}
-    <div class="card submitted">
+    <div class="card submitted" bind:this={submittedCard} tabindex="-1">
       <p>Your selections have been submitted. Waiting for others…</p>
       {#if isAdmin}
         <button type="button" class="btn primary" on:click={revealNow}>Reveal now</button>

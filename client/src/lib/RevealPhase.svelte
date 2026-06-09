@@ -61,7 +61,7 @@
   {/if}
 
   {#if viewingParticipant}
-    <h2 class="viewing-name">{viewingParticipant.name}'s Johari Window</h2>
+    <h2 class="viewing-name" aria-live="polite" aria-atomic="true">{viewingParticipant.name}'s Johari Window</h2>
 
     <div class="window-grid">
       <div class="quadrant open" role="region" aria-labelledby="q-open">
