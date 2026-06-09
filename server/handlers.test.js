@@ -17,7 +17,7 @@ function makeWs(overrides = {}) {
     sessionId: null,
     send(data) { messages.push(JSON.parse(data)); },
     messages,
-    last() { return messages[messages.length - 1]; },
+    last() { return messages.at(-1); },
     ...overrides,
   };
 }
