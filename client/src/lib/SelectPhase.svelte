@@ -23,20 +23,31 @@
   $: canSubmit = !alreadySubmitted && selfSelections.length > 0
     && peers.every(p => (peerSelections[p.id] ?? []).length > 0);
 
-  // Timer countdown
+  // Timer countdown — visual updates every second; screen reader announcement at most once per minute
   let remaining = null;
   let interval = null;
+  let lastAnnouncedMinute = -1;
+  let timerAnnouncement = '';
 
   $: if ($sessionState?.timerStartedAt && $sessionState?.timerDuration) {
     if (!interval) {
       interval = setInterval(() => {
         const elapsed = (Date.now() - $sessionState.timerStartedAt) / 1000;
         remaining = Math.max(0, Math.ceil($sessionState.timerDuration - elapsed));
+        const m = Math.floor(remaining / 60);
+        if (m !== lastAnnouncedMinute) {
+          lastAnnouncedMinute = m;
+          timerAnnouncement = remaining < 60
+            ? 'Less than a minute remaining'
+            : `${m} minute${m === 1 ? '' : 's'} remaining`;
+        }
       }, 1000);
     }
   } else {
     if (interval) { clearInterval(interval); interval = null; }
     remaining = null;
+    lastAnnouncedMinute = -1;
+    timerAnnouncement = '';
   }
 
   onDestroy(() => { if (interval) clearInterval(interval); });
@@ -58,13 +69,12 @@
 
 <div class="container">
   <header>
-    <h1>Select phase</h1>
+    <h1 tabindex="-1">Select phase</h1>
     <div class="meta">
       <span aria-live="polite">{submittedCount} of {totalCount} participants submitted</span>
       {#if remaining !== null}
-        <span class="timer" aria-live="polite" aria-atomic="true">
-          ⏱ {formatTime(remaining)}
-        </span>
+        <span class="timer" aria-hidden="true">⏱ {formatTime(remaining)}</span>
+        <span class="sr-only" aria-live="polite" aria-atomic="true">{timerAnnouncement}</span>
       {/if}
     </div>
   </header>
@@ -123,6 +133,17 @@
   h1 { margin: 0; font-size: 1.6rem; }
   .meta { display: flex; align-items: center; gap: 1rem; color: #4b5563; font-size: 0.9rem; }
   .timer { font-weight: 700; color: #1e293b; font-size: 1.05rem; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border-width: 0;
+  }
   .card {
     background: #fff;
     border: 1px solid #e2e8f0;
