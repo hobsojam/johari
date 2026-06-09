@@ -80,7 +80,6 @@
       class="btn primary"
       on:click={startSession}
       disabled={$sessionState.participants.length < 2}
-      aria-disabled={$sessionState.participants.length < 2}
     >
       Start session
     </button>

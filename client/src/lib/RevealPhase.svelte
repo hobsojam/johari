@@ -37,7 +37,7 @@
 
 <div class="container">
   <header>
-    <h1>Reveal</h1>
+    <h1 tabindex="-1">Reveal</h1>
     {#if isAdmin}
       <button type="button" class="btn secondary" on:click={reset}>Reset session</button>
     {/if}

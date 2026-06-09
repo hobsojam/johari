@@ -1,4 +1,5 @@
 <script>
+  import { tick } from 'svelte';
   import { connect, send, myId, sessionState } from '../ws.js';
 
   let mode = 'join'; // 'join' | 'create'
@@ -52,6 +53,36 @@
       const unsub = myId.subscribe(id => { if (id) { unsub(); resolve(); } });
     });
   }
+
+  const tabs = ['join', 'create'];
+
+  function switchTab(newMode) {
+    mode = newMode;
+    error = '';
+  }
+
+  function handleTabKeydown(e) {
+    const idx = tabs.indexOf(mode);
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = tabs[(idx + 1) % tabs.length];
+      switchTab(next);
+      tick().then(() => document.getElementById(`tab-${next}`)?.focus());
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+      switchTab(prev);
+      tick().then(() => document.getElementById(`tab-${prev}`)?.focus());
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      switchTab(tabs[0]);
+      tick().then(() => document.getElementById(`tab-${tabs[0]}`)?.focus());
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      switchTab(tabs[tabs.length - 1]);
+      tick().then(() => document.getElementById(`tab-${tabs[tabs.length - 1]}`)?.focus());
+    }
+  }
 </script>
 
 <div class="container">
@@ -61,16 +92,24 @@
   <div class="card">
     <div class="tabs" role="tablist">
       <button
+        id="tab-join"
         role="tab"
         aria-selected={mode === 'join'}
+        aria-controls="panel-join"
+        tabindex={mode === 'join' ? 0 : -1}
         class:active={mode === 'join'}
-        on:click={() => { mode = 'join'; error = ''; }}
+        on:click={() => switchTab('join')}
+        on:keydown={handleTabKeydown}
       >Join a session</button>
       <button
+        id="tab-create"
         role="tab"
         aria-selected={mode === 'create'}
+        aria-controls="panel-create"
+        tabindex={mode === 'create' ? 0 : -1}
         class:active={mode === 'create'}
-        on:click={() => { mode = 'create'; error = ''; }}
+        on:click={() => switchTab('create')}
+        on:keydown={handleTabKeydown}
       >Facilitate</button>
     </div>
 
@@ -78,7 +117,7 @@
       <p role="alert" class="form-error">{error}</p>
     {/if}
 
-    {#if mode === 'join'}
+    <div id="panel-join" role="tabpanel" aria-labelledby="tab-join" hidden={mode !== 'join'}>
       <form on:submit|preventDefault={handleJoin}>
         <label for="session-code">Session code</label>
         <input
@@ -95,8 +134,9 @@
         <input id="join-name" type="text" bind:value={name} placeholder="Display name" maxlength="200" />
         <button type="submit" class="btn primary" disabled={loading}>Join</button>
       </form>
+    </div>
 
-    {:else}
+    <div id="panel-create" role="tabpanel" aria-labelledby="tab-create" hidden={mode !== 'create'}>
       <form on:submit|preventDefault={handleCreate}>
         <label for="create-name">Your name</label>
         <input id="create-name" type="text" bind:value={name} placeholder="Display name" maxlength="200" />
@@ -113,7 +153,7 @@
           {loading ? 'Creating…' : 'Create & join'}
         </button>
       </form>
-    {/if}
+    </div>
   </div>
 </div>
 
@@ -154,12 +194,15 @@
     border-bottom-color: #4f46e5;
     font-weight: 600;
   }
+  .tabs button:focus-visible { outline: 2px solid #4f46e5; outline-offset: -2px; }
   form {
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
+  [role="tabpanel"] { display: block; }
+  [role="tabpanel"][hidden] { display: none; }
   label { font-size: 0.85rem; font-weight: 600; color: #374151; }
   input {
     padding: 0.6rem 0.75rem;

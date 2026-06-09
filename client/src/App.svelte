@@ -1,4 +1,5 @@
 <script>
+  import { tick } from 'svelte';
   import { sessionState, wsError, myId } from './ws.js';
   import JoinForm from './lib/JoinForm.svelte';
   import AdminPanel from './lib/AdminPanel.svelte';
@@ -8,6 +9,19 @@
   $: isAdmin = $sessionState && $myId && $sessionState.adminId === $myId;
   $: submittedCount = $sessionState ? $sessionState.participants.filter(p => p.submitted).length : 0;
   $: totalCount = $sessionState ? $sessionState.participants.length : 0;
+
+  // Move focus to the new phase heading on phase transitions
+  let prevPhase = null;
+  $: {
+    const newPhase = $sessionState?.phase ?? null;
+    if (newPhase && prevPhase !== null && newPhase !== prevPhase) {
+      tick().then(() => {
+        const h1 = document.querySelector('h1[tabindex="-1"]');
+        if (h1) h1.focus();
+      });
+    }
+    prevPhase = newPhase;
+  }
 </script>
 
 <div class="app">
@@ -21,12 +35,15 @@
   {:else if $sessionState.phase === 'lobby'}
     <div class="container">
       <header>
-        <h1>Johari Window</h1>
+        <h1 tabindex="-1">Johari Window</h1>
         <p class="session-code">Session code: <strong>{$sessionState.id}</strong></p>
       </header>
 
       <section aria-label="Participants" class="card">
         <h2>Participants ({totalCount})</h2>
+        <p class="sr-only" aria-live="polite" aria-atomic="true">
+          {totalCount} participant{totalCount === 1 ? '' : 's'} in the lobby
+        </p>
         {#if $sessionState.participants.length === 0}
           <p class="muted">No one has joined yet.</p>
         {:else}
@@ -83,6 +100,17 @@
   h2 { margin: 0 0 1rem; font-size: 1.1rem; }
   .session-code { margin: 0; color: #4b5563; font-size: 0.9rem; }
   .session-code strong { font-size: 1.2rem; color: #1e293b; letter-spacing: 0.08em; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border-width: 0;
+  }
   .card {
     background: #fff;
     border: 1px solid #e2e8f0;

@@ -21,7 +21,7 @@
 
 <fieldset class="word-grid-fieldset">
   <legend class="grid-label">{label} <span class="count">({selected.length} selected)</span></legend>
-  <div class="grid" role="group" aria-label="Select words for {label}">
+  <div class="grid">
     {#each words as word}
       <button
         type="button"
