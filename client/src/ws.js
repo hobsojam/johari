@@ -8,16 +8,17 @@ export const connected = writable(false);
 let socket = null;
 
 export function connect() {
-  if (socket) socket.close();
+  if (socket) {
+    socket.onmessage = socket.onclose = null;
+    socket.close();
+    socket = null;
+  }
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  socket = new WebSocket(`${protocol}//${location.host}/ws`);
+  const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+  socket = ws;
 
-  socket.onopen = () => {
-    connected.set(true);
-    wsError.set(null);
-  };
-
-  socket.onmessage = ({ data }) => {
+  ws.addEventListener('message', ({ data }) => {
     const msg = JSON.parse(data);
     if (msg.type === 'state') {
       const { type, ...state } = msg;
@@ -27,12 +28,23 @@ export function connect() {
     } else if (msg.type === 'error') {
       wsError.set(msg.message);
     }
-  };
+  });
 
-  socket.onclose = () => {
+  ws.addEventListener('close', () => {
     connected.set(false);
-    socket = null;
-  };
+    if (socket === ws) socket = null;
+  });
+
+  return new Promise((resolve, reject) => {
+    ws.addEventListener('open', () => {
+      connected.set(true);
+      wsError.set(null);
+      resolve();
+    });
+    ws.addEventListener('error', () => {
+      reject(new Error('Could not connect to server'));
+    });
+  });
 }
 
 export function send(type, payload = {}) {
@@ -42,6 +54,10 @@ export function send(type, payload = {}) {
 }
 
 export function disconnect() {
-  socket?.close();
-  socket = null;
+  if (socket) {
+    socket.onmessage = socket.onclose = null;
+    socket.close();
+    socket = null;
+  }
+  connected.set(false);
 }

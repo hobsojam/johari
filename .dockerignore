@@ -1,0 +1,8 @@
+node_modules
+.git
+.claude
+.codex
+.env
+*.local
+client/dist
+server/public
