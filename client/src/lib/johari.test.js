@@ -33,7 +33,7 @@ describe('computeQuadrants', () => {
       WORDS,
     );
     const all = [...result.open, ...result.hidden, ...result.blindSpot, ...result.unknown];
-    expect(all.sort()).toEqual([...WORDS].sort());
+    expect(all.toSorted((a, b) => a.localeCompare(b))).toEqual(WORDS.toSorted((a, b) => a.localeCompare(b)));
   });
 
   test('output order follows wordList, not selection order', () => {
