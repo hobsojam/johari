@@ -169,7 +169,7 @@
     border: 1px solid rgba(0,0,0,0.08);
     color: #1e293b;
   }
-  .empty { font-size: 0.85rem; color: #9ca3af; font-style: italic; }
+  .empty { font-size: 0.85rem; color: #4b5563; font-style: italic; }
   .btn {
     padding: 0.5rem 1rem;
     border: none;
