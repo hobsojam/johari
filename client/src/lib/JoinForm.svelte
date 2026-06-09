@@ -1,6 +1,6 @@
 <script>
   import { tick } from 'svelte';
-  import { connect, send, myId, sessionState } from '../ws.js';
+  import { connect, send, disconnect, myId, wsError } from '../ws.js';
 
   let mode = 'join'; // 'join' | 'create'
   let name = '';
@@ -22,35 +22,45 @@
       });
       const data = await res.json();
       if (!res.ok) { error = data.error ?? 'Failed to create session.'; return; }
-      connect();
-      await waitForOpen();
+      wsError.set(null);
+      await connect();
       send('join', { sessionId: data.sessionId, name: name.trim() });
-      await waitForId();
+      await waitForJoinResult();
       send('claim_admin', { pin: adminPin.trim() });
     } catch (e) {
-      error = 'Could not connect. Is the server running?';
+      error = e.message ?? 'Could not connect. Is the server running?';
+      disconnect();
     } finally {
       loading = false;
     }
   }
 
-  function handleJoin() {
+  async function handleJoin() {
     error = '';
     if (!sessionCode.trim()) { error = 'Enter a session code.'; return; }
     if (!name.trim()) { error = 'Enter your name.'; return; }
-    connect();
-    setTimeout(() => {
+    loading = true;
+    try {
+      wsError.set(null);
+      await connect();
       send('join', { sessionId: sessionCode.trim().toUpperCase(), name: name.trim() });
-    }, 200);
+      await waitForJoinResult();
+    } catch (e) {
+      error = e.message ?? 'Could not connect. Is the server running?';
+      disconnect();
+    } finally {
+      loading = false;
+    }
   }
 
-  function waitForOpen() {
-    return new Promise(resolve => setTimeout(resolve, 200));
-  }
-
-  function waitForId() {
-    return new Promise(resolve => {
-      const unsub = myId.subscribe(id => { if (id) { unsub(); resolve(); } });
+  function waitForJoinResult() {
+    return new Promise((resolve, reject) => {
+      const unsubId = myId.subscribe(id => {
+        if (id) { unsubId(); unsubErr(); resolve(); }
+      });
+      const unsubErr = wsError.subscribe(err => {
+        if (err) { unsubId(); unsubErr(); reject(new Error(err)); }
+      });
     });
   }
 
@@ -132,7 +142,9 @@
         />
         <label for="join-name">Your name</label>
         <input id="join-name" type="text" bind:value={name} placeholder="Display name" maxlength="200" />
-        <button type="submit" class="btn primary" disabled={loading}>Join</button>
+        <button type="submit" class="btn primary" disabled={loading}>
+          {loading ? 'Joining…' : 'Join'}
+        </button>
       </form>
     </div>
 
