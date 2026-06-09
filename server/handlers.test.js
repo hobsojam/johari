@@ -26,12 +26,26 @@ function makeWss(...clients) {
   return { clients: new Set(clients) };
 }
 
-// Directly attach a participant to a session and a ws without going through the join handler
 function attachParticipant(session, ws, { id = 'p-test', name = 'Tester' } = {}) {
   session.participants.push({ id, name, submitted: false, selfSelections: [], peerSelections: {} });
   ws.participantId = id;
   ws.sessionId = session.id;
   return id;
+}
+
+function setupSession() {
+  sessions.clear();
+  const session = createSession(PIN_HASH);
+  const ws = makeWs();
+  const wss = makeWss(ws);
+  attachParticipant(session, ws);
+  return { session, ws, wss };
+}
+
+function setupAdminSession() {
+  const result = setupSession();
+  result.session.adminId = result.ws.participantId;
+  return result;
 }
 
 describe('handleMessage dispatcher', () => {
@@ -128,13 +142,7 @@ describe('handleJoin', () => {
 describe('handleClaimAdmin', () => {
   let session, ws, wss;
 
-  beforeEach(async () => {
-    sessions.clear();
-    session = createSession(PIN_HASH);
-    ws = makeWs();
-    wss = makeWss(ws);
-    attachParticipant(session, ws);
-  });
+  beforeEach(() => { ({ session, ws, wss } = setupSession()); });
 
   test('errors if not yet joined', async () => {
     const stranger = makeWs();
@@ -169,14 +177,7 @@ describe('handleClaimAdmin', () => {
 describe('handleConfigure', () => {
   let session, ws, wss;
 
-  beforeEach(() => {
-    sessions.clear();
-    session = createSession(PIN_HASH);
-    ws = makeWs();
-    wss = makeWss(ws);
-    attachParticipant(session, ws);
-    session.adminId = ws.participantId;
-  });
+  beforeEach(() => { ({ session, ws, wss } = setupAdminSession()); });
 
   test('errors if not admin', async () => {
     session.adminId = 'someone-else';
@@ -233,7 +234,7 @@ describe('handleSubmitSelections', () => {
     session.phase = 'select';
     ws = makeWs();
     wss = makeWss(ws);
-    const submitterId = attachParticipant(session, ws, { id: 'submitter', name: 'Alice' });
+    attachParticipant(session, ws, { id: 'submitter', name: 'Alice' });
     peer = { id: 'peer-id', name: 'Bob', submitted: false, selfSelections: [], peerSelections: {} };
     session.participants.push(peer);
   });
@@ -303,14 +304,7 @@ describe('handleSubmitSelections', () => {
 describe('handleAdvancePhase', () => {
   let session, ws, wss;
 
-  beforeEach(() => {
-    sessions.clear();
-    session = createSession(PIN_HASH);
-    ws = makeWs();
-    wss = makeWss(ws);
-    attachParticipant(session, ws);
-    session.adminId = ws.participantId;
-  });
+  beforeEach(() => { ({ session, ws, wss } = setupAdminSession()); });
 
   test('errors if not admin', async () => {
     session.adminId = 'someone-else';
