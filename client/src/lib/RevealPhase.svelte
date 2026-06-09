@@ -1,5 +1,6 @@
 <script>
   import { sessionState, myId, send } from '../ws.js';
+  import { computeQuadrants } from './johari.js';
 
   $: isAdmin = $sessionState?.adminId === $myId;
   $: participants = $sessionState?.participants ?? [];
@@ -13,22 +14,6 @@
   $: quadrants = viewingParticipant
     ? computeQuadrants(viewingParticipant, participants, wordList)
     : { open: [], blindSpot: [], hidden: [], unknown: [] };
-
-  function computeQuadrants(target, all, words) {
-    const selfSet = new Set(target.selfSelections ?? []);
-    const peerSet = new Set();
-    for (const p of all) {
-      if (p.id === target.id) continue;
-      for (const w of (p.peerSelections?.[target.id] ?? [])) {
-        peerSet.add(w);
-      }
-    }
-    const open      = words.filter(w => selfSet.has(w) && peerSet.has(w));
-    const hidden    = words.filter(w => selfSet.has(w) && !peerSet.has(w));
-    const blindSpot = words.filter(w => !selfSet.has(w) && peerSet.has(w));
-    const unknown   = words.filter(w => !selfSet.has(w) && !peerSet.has(w));
-    return { open, hidden, blindSpot, unknown };
-  }
 
   function reset() {
     send('reset');
