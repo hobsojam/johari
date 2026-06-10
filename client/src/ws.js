@@ -7,12 +7,19 @@ export const connected = writable(false);
 
 let socket = null;
 
+function resetState() {
+  sessionState.set(null);
+  myId.set(null);
+  wsError.set(null);
+}
+
 export function connect() {
   if (socket) {
     socket.onmessage = socket.onclose = null;
     socket.close();
     socket = null;
   }
+  resetState();
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${protocol}//${location.host}/ws`);
@@ -31,8 +38,11 @@ export function connect() {
   });
 
   ws.addEventListener('close', () => {
-    connected.set(false);
-    if (socket === ws) socket = null;
+    if (socket === ws) {
+      socket = null;
+      connected.set(false);
+      resetState();
+    }
   });
 
   return new Promise((resolve, reject) => {
@@ -60,4 +70,5 @@ export function disconnect() {
     socket = null;
   }
   connected.set(false);
+  resetState();
 }

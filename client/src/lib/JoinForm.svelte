@@ -24,8 +24,9 @@
       if (!res.ok) { error = data.error ?? 'Failed to create session.'; return; }
       wsError.set(null);
       await connect();
+      const joined = waitForJoinResult();
       send('join', { sessionId: data.sessionId, name: name.trim() });
-      await waitForJoinResult();
+      await joined;
       send('claim_admin', { pin: adminPin.trim() });
     } catch (e) {
       error = e.message ?? 'Could not connect. Is the server running?';
@@ -43,8 +44,9 @@
     try {
       wsError.set(null);
       await connect();
+      const joined = waitForJoinResult();
       send('join', { sessionId: sessionCode.trim().toUpperCase(), name: name.trim() });
-      await waitForJoinResult();
+      await joined;
     } catch (e) {
       error = e.message ?? 'Could not connect. Is the server running?';
       disconnect();
