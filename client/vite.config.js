@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [svelte()],
   test: {
     environment: 'node',
+    include: ['src/**/*.test.js'],
   },
   server: {
     proxy: {
