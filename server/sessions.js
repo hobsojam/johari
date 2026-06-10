@@ -1,3 +1,5 @@
+const { randomInt } = require('crypto');
+
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const sessions = new Map();
@@ -22,7 +24,7 @@ const DEFAULT_WORD_LIST = [
 function generateId() {
   let id;
   do {
-    id = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+    id = Array.from({ length: 6 }, () => CHARS[randomInt(CHARS.length)]).join('');
   } while (sessions.has(id));
   return id;
 }
