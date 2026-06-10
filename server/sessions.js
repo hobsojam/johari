@@ -1,4 +1,4 @@
-const { randomInt } = require('crypto');
+const { randomInt } = require('node:crypto');
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 

@@ -10,8 +10,8 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.addInitScript(() => {
-    window.__wsInstances = [];
-    window.__wsMessages = [];
+    globalThis.__wsInstances = [];
+    globalThis.__wsMessages = [];
 
     class MockWebSocket extends EventTarget {
       static CONNECTING = 0;
@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
         super();
         this.url = url;
         this.readyState = MockWebSocket.CONNECTING;
-        window.__wsInstances.push(this);
+        globalThis.__wsInstances.push(this);
         setTimeout(() => {
           this.readyState = MockWebSocket.OPEN;
           this.dispatchEvent(new Event('open'));
@@ -32,8 +32,8 @@ test.beforeEach(async ({ page }) => {
 
       send(raw) {
         const message = JSON.parse(raw);
-        window.__wsMessages.push(message);
-        window.__handleWsMessage?.(this, message);
+        globalThis.__wsMessages.push(message);
+        globalThis.__handleWsMessage?.(this, message);
       }
 
       close() {
@@ -46,14 +46,14 @@ test.beforeEach(async ({ page }) => {
       }
     }
 
-    window.WebSocket = MockWebSocket;
+    globalThis.WebSocket = MockWebSocket;
   });
 });
 
 test('clears stale session identity before a new join attempt', async ({ page }) => {
   await page.addInitScript(() => {
     let firstJoin = true;
-    window.__handleWsMessage = (socket, message) => {
+    globalThis.__handleWsMessage = (socket, message) => {
       if (message.type === 'join' && firstJoin) {
         firstJoin = false;
         socket.receive({ type: 'joined', participantId: 'alice-id' });
@@ -92,7 +92,7 @@ test('clears stale session identity before a new join attempt', async ({ page })
 
   await expect(page.getByText('Session code:')).toBeVisible();
 
-  await page.evaluate(() => window.__wsInstances.at(-1).close());
+  await page.evaluate(() => globalThis.__wsInstances.at(-1).close());
 
   await expect(page.getByRole('button', { name: 'Join' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Session code' }).fill('BAD999');
