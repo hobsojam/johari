@@ -7,7 +7,11 @@ const { sessions, createSession } = require('./sessions');
 const { handleMessage, broadcast } = require('./handlers');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '16kb' }));
+
+const SESSION_CREATION_WINDOW_MS = 60 * 1000;
+const MAX_SESSION_CREATIONS_PER_WINDOW = 20;
+const sessionCreationAttempts = new Map();
 
 const STATIC_DIR = process.env.STATIC_DIR || path.join(__dirname, 'public');
 app.use(express.static(STATIC_DIR));
@@ -15,21 +19,38 @@ app.use(express.static(STATIC_DIR));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/api/sessions', async (req, res) => {
+  if (isSessionCreationRateLimited(req.ip)) {
+    return res.status(429).json({ error: 'Too many session creation attempts. Try again later.' });
+  }
   const { adminPin } = req.body ?? {};
   if (typeof adminPin !== 'string' || adminPin.trim().length < 1 || adminPin.length > 100) {
     return res.status(400).json({ error: 'adminPin required (1–100 chars)' });
   }
   const hash = await bcrypt.hash(adminPin.trim(), 10);
-  const session = createSession(hash);
-  res.json({ sessionId: session.id });
+  try {
+    const session = createSession(hash);
+    res.json({ sessionId: session.id });
+  } catch (e) {
+    res.status(503).json({ error: e.message });
+  }
 });
+
+function isSessionCreationRateLimited(clientId, now = Date.now()) {
+  const current = sessionCreationAttempts.get(clientId);
+  if (!current || current.resetAt <= now) {
+    sessionCreationAttempts.set(clientId, { count: 1, resetAt: now + SESSION_CREATION_WINDOW_MS });
+    return false;
+  }
+  current.count += 1;
+  return current.count > MAX_SESSION_CREATIONS_PER_WINDOW;
+}
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(STATIC_DIR, 'index.html'));
 });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024 });
 
 wss.on('connection', (ws) => {
   ws.participantId = null;

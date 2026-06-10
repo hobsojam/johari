@@ -2,7 +2,7 @@
 const { describe, test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
-const { sessions, createSession } = require('./sessions');
+const { MAX_ADMIN_PIN_ATTEMPTS, MAX_PARTICIPANTS, MAX_WORDS, sessions, createSession } = require('./sessions');
 const { handleMessage } = require('./handlers');
 
 const PIN = 'test-pin';
@@ -107,6 +107,25 @@ describe('handleJoin', () => {
     assert.equal(ws.last().type, 'error');
   });
 
+  test('errors if the session is full', async () => {
+    const session = createSession(PIN_HASH);
+    for (let i = 0; i < MAX_PARTICIPANTS; i += 1) {
+      session.participants.push({
+        id: `p${i}`,
+        name: `Participant ${i}`,
+        submitted: false,
+        selfSelections: [],
+        peerSelections: {},
+      });
+    }
+    const ws = makeWs();
+
+    await handleMessage(ws, { type: 'join', sessionId: session.id, name: 'Latecomer' }, makeWss(ws));
+
+    assert.equal(ws.last().type, 'error');
+    assert.match(ws.last().message, /Session is full/);
+  });
+
   test('errors if ws is already in a session', async () => {
     const session = createSession(PIN_HASH);
     const ws = makeWs({ participantId: 'existing' });
@@ -156,6 +175,19 @@ describe('handleClaimAdmin', () => {
     assert.equal(session.adminId, null);
   });
 
+  test('rate limits repeated wrong pin attempts', async () => {
+    for (let i = 0; i < MAX_ADMIN_PIN_ATTEMPTS; i += 1) {
+      await handleMessage(ws, { type: 'claim_admin', pin: 'wrong' }, wss);
+      assert.equal(ws.last().message, 'Incorrect PIN');
+    }
+
+    await handleMessage(ws, { type: 'claim_admin', pin: PIN }, wss);
+
+    assert.equal(ws.last().type, 'error');
+    assert.match(ws.last().message, /Too many incorrect PIN attempts/);
+    assert.equal(session.adminId, null);
+  });
+
   test('errors if admin is already claimed', async () => {
     session.adminId = 'someone-else';
     await handleMessage(ws, { type: 'claim_admin', pin: PIN }, wss);
@@ -193,6 +225,15 @@ describe('handleConfigure', () => {
 
   test('errors if wordList has fewer than 2 entries', async () => {
     await handleMessage(ws, { type: 'configure', wordList: ['only-one'], timerDuration: null }, wss);
+    assert.equal(ws.last().type, 'error');
+  });
+
+  test('errors if wordList exceeds the maximum size', async () => {
+    await handleMessage(ws, {
+      type: 'configure',
+      wordList: Array.from({ length: MAX_WORDS + 1 }, (_, i) => `word-${i}`),
+      timerDuration: null,
+    }, wss);
     assert.equal(ws.last().type, 'error');
   });
 
@@ -256,6 +297,8 @@ describe('handleSubmitSelections', () => {
     ['peerSelections references an unknown participant',      { selfSelections: ['calm'], peerSelections: { 'ghost-id': ['bold'] } }],
     ['peerSelections contains a word not in wordList',        { selfSelections: ['calm'], peerSelections: { 'peer-id': ['not-a-real-word'] } }],
     ['participant tries to submit selections for themselves', { selfSelections: ['calm'], peerSelections: { 'submitter': ['bold'] } }],
+    ['selfSelections contains duplicates',                    { selfSelections: ['calm', 'calm'], peerSelections: { 'peer-id': ['bold'] } }],
+    ['peerSelections contains duplicates',                    { selfSelections: ['calm'], peerSelections: { 'peer-id': ['bold', 'bold'] } }],
   ];
   for (const [label, payload] of invalidPayloads) {
     test(`errors if ${label}`, async () => {
