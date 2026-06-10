@@ -1,6 +1,13 @@
 const { randomUUID } = require('crypto');
 const bcrypt = require('bcryptjs');
-const { sessions, sanitize } = require('./sessions');
+const {
+  ADMIN_PIN_WINDOW_MS,
+  MAX_ADMIN_PIN_ATTEMPTS,
+  MAX_PARTICIPANTS,
+  MAX_WORDS,
+  sessions,
+  sanitize,
+} = require('./sessions');
 
 function send(ws, type, payload = {}) {
   if (ws.readyState === 1) {
@@ -47,6 +54,9 @@ function handleJoin(ws, msg, wss) {
   if (!session) {
     return send(ws, 'error', { message: 'Session not found' });
   }
+  if (session.participants.length >= MAX_PARTICIPANTS) {
+    return send(ws, 'error', { message: `Session is full (max ${MAX_PARTICIPANTS} participants)` });
+  }
   const trimmed = name.trim();
   if (session.participants.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
     return send(ws, 'error', { message: 'Name already taken in this session' });
@@ -73,10 +83,39 @@ async function handleClaimAdmin(ws, msg, wss) {
   if (session.adminId) return send(ws, 'error', { message: 'Admin already claimed' });
   const { pin } = msg;
   if (typeof pin !== 'string') return send(ws, 'error', { message: 'pin required' });
+  if (isAdminPinRateLimited(session, ws.participantId)) {
+    return send(ws, 'error', { message: 'Too many incorrect PIN attempts. Try again later.' });
+  }
   const valid = await bcrypt.compare(pin, session.adminPinHash);
-  if (!valid) return send(ws, 'error', { message: 'Incorrect PIN' });
+  if (!valid) {
+    recordFailedAdminPinAttempt(session, ws.participantId);
+    return send(ws, 'error', { message: 'Incorrect PIN' });
+  }
+  session._adminPinAttempts.delete(ws.participantId);
   session.adminId = ws.participantId;
   broadcast(wss, session.id, session);
+}
+
+function isAdminPinRateLimited(session, participantId, now = Date.now()) {
+  const attempt = session._adminPinAttempts.get(participantId);
+  return Boolean(attempt?.blockedUntil && attempt.blockedUntil > now);
+}
+
+function recordFailedAdminPinAttempt(session, participantId, now = Date.now()) {
+  const current = session._adminPinAttempts.get(participantId);
+  if (!current || current.resetAt <= now) {
+    session._adminPinAttempts.set(participantId, {
+      count: 1,
+      resetAt: now + ADMIN_PIN_WINDOW_MS,
+      blockedUntil: null,
+    });
+    return;
+  }
+
+  current.count += 1;
+  if (current.count >= MAX_ADMIN_PIN_ATTEMPTS) {
+    current.blockedUntil = current.resetAt;
+  }
 }
 
 function handleConfigure(ws, msg, wss) {
@@ -86,8 +125,8 @@ function handleConfigure(ws, msg, wss) {
   if (session.phase !== 'lobby') return send(ws, 'error', { message: 'Can only configure in lobby' });
 
   const { wordList, timerDuration } = msg;
-  if (!Array.isArray(wordList) || wordList.length < 2) {
-    return send(ws, 'error', { message: 'wordList must have at least 2 entries' });
+  if (!Array.isArray(wordList) || wordList.length < 2 || wordList.length > MAX_WORDS) {
+    return send(ws, 'error', { message: `wordList must have 2–${MAX_WORDS} entries` });
   }
   for (const w of wordList) {
     if (typeof w !== 'string' || w.trim().length < 1 || w.length > 200) {
@@ -117,6 +156,12 @@ function handleSubmitSelections(ws, msg, wss) {
   if (!Array.isArray(selfSelections)) {
     return send(ws, 'error', { message: 'selfSelections must be an array' });
   }
+  if (selfSelections.length > session.wordList.length) {
+    return send(ws, 'error', { message: 'Too many self selections' });
+  }
+  if (hasDuplicates(selfSelections)) {
+    return send(ws, 'error', { message: 'selfSelections must not contain duplicates' });
+  }
   for (const w of selfSelections) {
     if (!session.wordList.includes(w)) return send(ws, 'error', { message: `Unknown word: ${w}` });
   }
@@ -124,12 +169,22 @@ function handleSubmitSelections(ws, msg, wss) {
     return send(ws, 'error', { message: 'peerSelections must be an object' });
   }
   const peers = session.participants.filter(p => p.id !== ws.participantId);
-  for (const [targetId, words] of Object.entries(peerSelections)) {
+  const peerEntries = Object.entries(peerSelections);
+  if (peerEntries.length > peers.length) {
+    return send(ws, 'error', { message: 'Too many peer selection targets' });
+  }
+  for (const [targetId, words] of peerEntries) {
     if (!peers.some(p => p.id === targetId)) {
       return send(ws, 'error', { message: `Unknown participant: ${targetId}` });
     }
     if (!Array.isArray(words)) {
       return send(ws, 'error', { message: 'peerSelections values must be arrays' });
+    }
+    if (words.length > session.wordList.length) {
+      return send(ws, 'error', { message: 'Too many peer selections' });
+    }
+    if (hasDuplicates(words)) {
+      return send(ws, 'error', { message: 'peerSelections values must not contain duplicates' });
     }
     for (const w of words) {
       if (!session.wordList.includes(w)) return send(ws, 'error', { message: `Unknown word: ${w}` });
@@ -140,6 +195,10 @@ function handleSubmitSelections(ws, msg, wss) {
   participant.peerSelections = peerSelections;
   participant.submitted = true;
   broadcast(wss, session.id, session);
+}
+
+function hasDuplicates(values) {
+  return new Set(values).size !== values.length;
 }
 
 function handleAdvancePhase(ws, msg, wss) {

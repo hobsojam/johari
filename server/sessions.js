@@ -1,6 +1,14 @@
+const { randomInt } = require('crypto');
+
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const sessions = new Map();
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const MAX_SESSIONS = 100;
+const MAX_PARTICIPANTS = 50;
+const MAX_WORDS = 200;
+const ADMIN_PIN_WINDOW_MS = 5 * 60 * 1000;
+const MAX_ADMIN_PIN_ATTEMPTS = 5;
 
 const DEFAULT_WORD_LIST = [
   'able', 'accepting', 'adaptable', 'bold', 'brave', 'calm', 'caring', 'cheerful',
@@ -16,12 +24,16 @@ const DEFAULT_WORD_LIST = [
 function generateId() {
   let id;
   do {
-    id = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+    id = Array.from({ length: 6 }, () => CHARS[randomInt(CHARS.length)]).join('');
   } while (sessions.has(id));
   return id;
 }
 
 function createSession(adminPinHash) {
+  pruneExpiredSessions();
+  if (sessions.size >= MAX_SESSIONS) {
+    throw new Error('Session capacity reached');
+  }
   const id = generateId();
   const session = {
     id,
@@ -32,10 +44,21 @@ function createSession(adminPinHash) {
     timerDuration: null,
     timerStartedAt: null,
     _timerTimeout: null,
+    _createdAt: Date.now(),
+    _adminPinAttempts: new Map(),
     participants: [],
   };
   sessions.set(id, session);
   return session;
+}
+
+function pruneExpiredSessions(now = Date.now()) {
+  for (const [id, session] of sessions) {
+    if (now - session._createdAt >= SESSION_TTL_MS) {
+      if (session._timerTimeout) clearTimeout(session._timerTimeout);
+      sessions.delete(id);
+    }
+  }
 }
 
 function removeParticipant(session, participantId) {
@@ -46,7 +69,7 @@ function removeParticipant(session, participantId) {
 }
 
 function sanitize(session) {
-  const { adminPinHash, _timerTimeout, participants, ...rest } = session;
+  const { adminPinHash, _timerTimeout, _createdAt, _adminPinAttempts, participants, ...rest } = session;
   const sanitizedParticipants = participants.map(({ selfSelections, peerSelections, ...p }) => {
     if (session.phase === 'reveal') {
       return { ...p, selfSelections, peerSelections };
@@ -56,4 +79,17 @@ function sanitize(session) {
   return { ...rest, participants: sanitizedParticipants };
 }
 
-module.exports = { sessions, DEFAULT_WORD_LIST, createSession, removeParticipant, sanitize };
+module.exports = {
+  sessions,
+  DEFAULT_WORD_LIST,
+  SESSION_TTL_MS,
+  MAX_SESSIONS,
+  MAX_PARTICIPANTS,
+  MAX_WORDS,
+  ADMIN_PIN_WINDOW_MS,
+  MAX_ADMIN_PIN_ATTEMPTS,
+  createSession,
+  pruneExpiredSessions,
+  removeParticipant,
+  sanitize,
+};
