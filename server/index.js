@@ -3,7 +3,7 @@ const { WebSocketServer } = require('ws');
 const http = require('http');
 const path = require('path');
 const bcrypt = require('bcryptjs');
-const { sessions, createSession } = require('./sessions');
+const { sessions, createSession, removeParticipant } = require('./sessions');
 const { handleMessage, broadcast } = require('./handlers');
 
 const app = express();
@@ -50,7 +50,7 @@ wss.on('connection', (ws) => {
     if (!ws.sessionId || !ws.participantId) return;
     const session = sessions.get(ws.sessionId);
     if (!session) return;
-    session.participants = session.participants.filter(p => p.id !== ws.participantId);
+    removeParticipant(session, ws.participantId);
     if (session.participants.length === 0) {
       if (session._timerTimeout) clearTimeout(session._timerTimeout);
       sessions.delete(ws.sessionId);

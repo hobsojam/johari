@@ -1,7 +1,7 @@
 'use strict';
 const { describe, test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { sessions, createSession, sanitize, DEFAULT_WORD_LIST } = require('./sessions');
+const { sessions, createSession, removeParticipant, sanitize, DEFAULT_WORD_LIST } = require('./sessions');
 
 const VALID_CHARS = new Set('ABCDEFGHJKLMNPQRSTUVWXYZ23456789');
 
@@ -49,6 +49,48 @@ describe('createSession', () => {
   test('generates unique IDs across multiple sessions', () => {
     const ids = new Set(Array.from({ length: 20 }, () => createSession('hash').id));
     assert.equal(ids.size, 20);
+  });
+});
+
+describe('removeParticipant', () => {
+  beforeEach(() => sessions.clear());
+
+  test('removes the participant from the session', () => {
+    const session = createSession('hash');
+    session.participants.push(
+      makeParticipant({ id: 'p1', name: 'Alice' }),
+      makeParticipant({ id: 'p2', name: 'Bob' }),
+    );
+
+    removeParticipant(session, 'p1');
+
+    assert.deepEqual(session.participants.map(p => p.id), ['p2']);
+  });
+
+  test('clears adminId when the admin leaves', () => {
+    const session = createSession('hash');
+    session.adminId = 'admin-id';
+    session.participants.push(
+      makeParticipant({ id: 'admin-id', name: 'Admin' }),
+      makeParticipant({ id: 'p2', name: 'Bob' }),
+    );
+
+    removeParticipant(session, 'admin-id');
+
+    assert.equal(session.adminId, null);
+  });
+
+  test('keeps adminId when a non-admin leaves', () => {
+    const session = createSession('hash');
+    session.adminId = 'admin-id';
+    session.participants.push(
+      makeParticipant({ id: 'admin-id', name: 'Admin' }),
+      makeParticipant({ id: 'p2', name: 'Bob' }),
+    );
+
+    removeParticipant(session, 'p2');
+
+    assert.equal(session.adminId, 'admin-id');
   });
 });
 
