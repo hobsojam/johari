@@ -59,6 +59,13 @@ function pruneExpiredSessions(now = Date.now()) {
   }
 }
 
+function removeParticipant(session, participantId) {
+  session.participants = session.participants.filter(p => p.id !== participantId);
+  if (session.adminId === participantId) {
+    session.adminId = null;
+  }
+}
+
 function sanitize(session) {
   const { adminPinHash, _timerTimeout, _createdAt, _adminPinAttempts, participants, ...rest } = session;
   const sanitizedParticipants = participants.map(({ selfSelections, peerSelections, ...p }) => {
@@ -81,5 +88,6 @@ module.exports = {
   MAX_ADMIN_PIN_ATTEMPTS,
   createSession,
   pruneExpiredSessions,
+  removeParticipant,
   sanitize,
 };

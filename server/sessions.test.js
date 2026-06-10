@@ -5,6 +5,7 @@ const {
   sessions,
   createSession,
   pruneExpiredSessions,
+  removeParticipant,
   sanitize,
   DEFAULT_WORD_LIST,
   SESSION_TTL_MS,
@@ -88,6 +89,48 @@ describe('pruneExpiredSessions', () => {
 
     assert(!sessions.has(expired.id));
     assert(sessions.has(current.id));
+  });
+});
+
+describe('removeParticipant', () => {
+  beforeEach(() => sessions.clear());
+
+  test('removes the participant from the session', () => {
+    const session = createSession('hash');
+    session.participants.push(
+      makeParticipant({ id: 'p1', name: 'Alice' }),
+      makeParticipant({ id: 'p2', name: 'Bob' }),
+    );
+
+    removeParticipant(session, 'p1');
+
+    assert.deepEqual(session.participants.map(p => p.id), ['p2']);
+  });
+
+  test('clears adminId when the admin leaves', () => {
+    const session = createSession('hash');
+    session.adminId = 'admin-id';
+    session.participants.push(
+      makeParticipant({ id: 'admin-id', name: 'Admin' }),
+      makeParticipant({ id: 'p2', name: 'Bob' }),
+    );
+
+    removeParticipant(session, 'admin-id');
+
+    assert.equal(session.adminId, null);
+  });
+
+  test('keeps adminId when a non-admin leaves', () => {
+    const session = createSession('hash');
+    session.adminId = 'admin-id';
+    session.participants.push(
+      makeParticipant({ id: 'admin-id', name: 'Admin' }),
+      makeParticipant({ id: 'p2', name: 'Bob' }),
+    );
+
+    removeParticipant(session, 'p2');
+
+    assert.equal(session.adminId, 'admin-id');
   });
 });
 
