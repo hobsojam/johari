@@ -38,6 +38,13 @@ function createSession(adminPinHash) {
   return session;
 }
 
+function removeParticipant(session, participantId) {
+  session.participants = session.participants.filter(p => p.id !== participantId);
+  if (session.adminId === participantId) {
+    session.adminId = null;
+  }
+}
+
 function sanitize(session) {
   const { adminPinHash, _timerTimeout, participants, ...rest } = session;
   const sanitizedParticipants = participants.map(({ selfSelections, peerSelections, ...p }) => {
@@ -49,4 +56,4 @@ function sanitize(session) {
   return { ...rest, participants: sanitizedParticipants };
 }
 
-module.exports = { sessions, DEFAULT_WORD_LIST, createSession, sanitize };
+module.exports = { sessions, DEFAULT_WORD_LIST, createSession, removeParticipant, sanitize };
