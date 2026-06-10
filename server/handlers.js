@@ -1,4 +1,4 @@
-const { randomUUID } = require('crypto');
+const { randomUUID } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const {
   ADMIN_PIN_WINDOW_MS,
@@ -153,48 +153,73 @@ function handleSubmitSelections(ws, msg, wss) {
   if (participant.submitted) return send(ws, 'error', { message: 'Already submitted' });
 
   const { selfSelections, peerSelections } = msg;
-  if (!Array.isArray(selfSelections)) {
-    return send(ws, 'error', { message: 'selfSelections must be an array' });
-  }
-  if (selfSelections.length > session.wordList.length) {
-    return send(ws, 'error', { message: 'Too many self selections' });
-  }
-  if (hasDuplicates(selfSelections)) {
-    return send(ws, 'error', { message: 'selfSelections must not contain duplicates' });
-  }
-  for (const w of selfSelections) {
-    if (!session.wordList.includes(w)) return send(ws, 'error', { message: `Unknown word: ${w}` });
-  }
-  if (typeof peerSelections !== 'object' || peerSelections === null || Array.isArray(peerSelections)) {
-    return send(ws, 'error', { message: 'peerSelections must be an object' });
-  }
   const peers = session.participants.filter(p => p.id !== ws.participantId);
-  const peerEntries = Object.entries(peerSelections);
-  if (peerEntries.length > peers.length) {
-    return send(ws, 'error', { message: 'Too many peer selection targets' });
-  }
-  for (const [targetId, words] of peerEntries) {
-    if (!peers.some(p => p.id === targetId)) {
-      return send(ws, 'error', { message: `Unknown participant: ${targetId}` });
-    }
-    if (!Array.isArray(words)) {
-      return send(ws, 'error', { message: 'peerSelections values must be arrays' });
-    }
-    if (words.length > session.wordList.length) {
-      return send(ws, 'error', { message: 'Too many peer selections' });
-    }
-    if (hasDuplicates(words)) {
-      return send(ws, 'error', { message: 'peerSelections values must not contain duplicates' });
-    }
-    for (const w of words) {
-      if (!session.wordList.includes(w)) return send(ws, 'error', { message: `Unknown word: ${w}` });
-    }
-  }
+
+  const selfError = validateSelfSelections(selfSelections, session.wordList);
+  if (selfError) return send(ws, 'error', { message: selfError });
+
+  const peerError = validatePeerSelections(peerSelections, peers, session.wordList);
+  if (peerError) return send(ws, 'error', { message: peerError });
 
   participant.selfSelections = selfSelections;
   participant.peerSelections = peerSelections;
   participant.submitted = true;
   broadcast(wss, session.id, session);
+}
+
+function validateSelfSelections(selfSelections, wordList) {
+  if (!Array.isArray(selfSelections)) {
+    return 'selfSelections must be an array';
+  }
+  if (selfSelections.length > wordList.length) {
+    return 'Too many self selections';
+  }
+  if (hasDuplicates(selfSelections)) {
+    return 'selfSelections must not contain duplicates';
+  }
+  return validateKnownWords(selfSelections, wordList);
+}
+
+function validatePeerSelections(peerSelections, peers, wordList) {
+  if (typeof peerSelections !== 'object' || peerSelections === null || Array.isArray(peerSelections)) {
+    return 'peerSelections must be an object';
+  }
+
+  const peerIds = new Set(peers.map(p => p.id));
+  const peerEntries = Object.entries(peerSelections);
+  if (peerEntries.length > peers.length) {
+    return 'Too many peer selection targets';
+  }
+
+  for (const [targetId, words] of peerEntries) {
+    const error = validatePeerTargetSelections(targetId, words, peerIds, wordList);
+    if (error) return error;
+  }
+
+  return null;
+}
+
+function validatePeerTargetSelections(targetId, words, peerIds, wordList) {
+  if (!peerIds.has(targetId)) {
+    return `Unknown participant: ${targetId}`;
+  }
+  if (!Array.isArray(words)) {
+    return 'peerSelections values must be arrays';
+  }
+  if (words.length > wordList.length) {
+    return 'Too many peer selections';
+  }
+  if (hasDuplicates(words)) {
+    return 'peerSelections values must not contain duplicates';
+  }
+  return validateKnownWords(words, wordList);
+}
+
+function validateKnownWords(words, wordList) {
+  for (const w of words) {
+    if (!wordList.includes(w)) return `Unknown word: ${w}`;
+  }
+  return null;
 }
 
 function hasDuplicates(values) {

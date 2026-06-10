@@ -293,15 +293,15 @@ describe('handleSubmitSelections', () => {
   });
 
   const invalidPayloads = [
-    ['selfSelections contains a word not in wordList',        { selfSelections: ['not-a-real-word'], peerSelections: { 'peer-id': ['calm'] } }],
-    ['peerSelections references an unknown participant',      { selfSelections: ['calm'], peerSelections: { 'ghost-id': ['bold'] } }],
-    ['peerSelections contains a word not in wordList',        { selfSelections: ['calm'], peerSelections: { 'peer-id': ['not-a-real-word'] } }],
-    ['participant tries to submit selections for themselves', { selfSelections: ['calm'], peerSelections: { 'submitter': ['bold'] } }],
-    ['selfSelections contains duplicates',                    { selfSelections: ['calm', 'calm'], peerSelections: { 'peer-id': ['bold'] } }],
-    ['peerSelections contains duplicates',                    { selfSelections: ['calm'], peerSelections: { 'peer-id': ['bold', 'bold'] } }],
+    { description: 'selfSelections contains a word not in wordList',        payload: { selfSelections: ['not-a-real-word'], peerSelections: { 'peer-id': ['calm'] } } },
+    { description: 'peerSelections references an unknown participant',      payload: { selfSelections: ['calm'], peerSelections: { 'ghost-id': ['bold'] } } },
+    { description: 'peerSelections contains a word not in wordList',        payload: { selfSelections: ['calm'], peerSelections: { 'peer-id': ['not-a-real-word'] } } },
+    { description: 'participant tries to submit selections for themselves', payload: { selfSelections: ['calm'], peerSelections: { 'submitter': ['bold'] } } },
+    { description: 'selfSelections contains duplicates',                    payload: { selfSelections: ['calm', 'calm'], peerSelections: { 'peer-id': ['bold'] } } },
+    { description: 'peerSelections contains duplicates',                    payload: { selfSelections: ['calm'], peerSelections: { 'peer-id': ['bold', 'bold'] } } },
   ];
-  for (const [label, payload] of invalidPayloads) {
-    test(`errors if ${label}`, async () => {
+  for (const { description, payload } of invalidPayloads) {
+    test(`errors if ${description}`, async () => {
       await handleMessage(ws, { type: 'submit_selections', ...payload }, wss);
       assert.equal(ws.last().type, 'error');
     });
