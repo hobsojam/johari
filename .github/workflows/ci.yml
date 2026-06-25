@@ -49,3 +49,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker build .
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - run: npm install
+        working-directory: server
+      - name: Audit server dependencies
+        run: npm audit --audit-level=high
+        working-directory: server
+      - run: npm install
+        working-directory: client
+      - name: Audit client dependencies
+        run: npm audit --audit-level=high
+        working-directory: client
