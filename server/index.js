@@ -8,6 +8,12 @@ const { sessions, createSession, removeParticipant } = require('./sessions');
 const { handleMessage, broadcast } = require('./handlers');
 
 const app = express();
+
+// Behind a TLS-terminating proxy (e.g. Render), Express must trust the
+// forwarded IP so the session-creation rate limiter keys on real client
+// addresses instead of collapsing everyone into the proxy's IP.
+if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '16kb' }));
 
 const SESSION_CREATION_WINDOW_MS = 60 * 1000;
