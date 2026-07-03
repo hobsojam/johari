@@ -45,7 +45,7 @@ function isSessionCreationRateLimited(clientId, now = Date.now()) {
   return current.count > MAX_SESSION_CREATIONS_PER_WINDOW;
 }
 
-app.get('*', (_req, res) => {
+app.get(/.*/, (_req, res) => {
   res.sendFile(path.join(STATIC_DIR, 'index.html'));
 });
 
