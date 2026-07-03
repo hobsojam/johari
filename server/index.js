@@ -1,6 +1,7 @@
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const http = require('node:http');
+const fs = require('node:fs');
 const path = require('node:path');
 const bcrypt = require('bcryptjs');
 const { sessions, createSession, removeParticipant } = require('./sessions');
@@ -45,8 +46,18 @@ function isSessionCreationRateLimited(clientId, now = Date.now()) {
   return current.count > MAX_SESSION_CREATIONS_PER_WINDOW;
 }
 
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(STATIC_DIR, 'index.html'));
+// Cached at startup so the SPA fallback does no per-request fs access;
+// the file is a build artifact that never changes while the server runs.
+let spaIndexHtml = null;
+try {
+  spaIndexHtml = fs.readFileSync(path.join(STATIC_DIR, 'index.html'));
+} catch {
+  console.warn(`No index.html found in ${STATIC_DIR}; SPA fallback disabled`);
+}
+
+app.get(/.*/, (_req, res) => {
+  if (!spaIndexHtml) return res.status(404).json({ error: 'Not found' });
+  res.type('html').send(spaIndexHtml);
 });
 
 const server = http.createServer(app);
