@@ -82,4 +82,8 @@ wss.on('connection', (ws) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Johari server running on :${PORT}`));
+if (require.main === module) {
+  server.listen(PORT, () => console.log(`Johari server running on :${PORT}`));
+}
+
+module.exports = { server };

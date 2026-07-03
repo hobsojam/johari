@@ -41,6 +41,8 @@ jobs:
           cache-dependency-path: client/package-lock.json
       - run: npm install
       - run: npm run test --if-present
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
       - run: npm run build
 
   docker:
