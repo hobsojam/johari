@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: johari
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: TRUST_PROXY
+        value: "true"
