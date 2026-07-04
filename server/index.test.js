@@ -25,8 +25,17 @@ after(async () => {
   });
 });
 
+test('POST /api/sessions rejects an admin PIN over the max length', async () => {
+  const response = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ adminPin: 'x'.repeat(9) }),
+  });
+  assert.equal(response.status, 400);
+});
+
 test('POST /api/sessions hashes the trimmed admin PIN before storing it', async () => {
-  const adminPin = 'correct horse battery staple';
+  const adminPin = 'horse-42';
   const response = await fetch(`${baseUrl}/api/sessions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

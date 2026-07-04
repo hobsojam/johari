@@ -55,6 +55,14 @@
     }
   }
 
+  // maxlength alone corrupts pasted codes: the browser truncates " AB3K7P"
+  // to 6 chars before any trim can run. Normalise on input instead.
+  function handleCodeInput(e) {
+    const cleaned = e.target.value.replace(/\s+/g, '').toUpperCase().slice(0, 6);
+    sessionCode = cleaned;
+    if (e.target.value !== cleaned) e.target.value = cleaned;
+  }
+
   function waitForJoinResult() {
     return new Promise((resolve, reject) => {
       const unsubId = myId.subscribe(id => {
@@ -136,14 +144,14 @@
           id="session-code"
           type="text"
           bind:value={sessionCode}
+          on:input={handleCodeInput}
           placeholder="e.g. AB3K7P"
           autocomplete="off"
           spellcheck="false"
-          maxlength="6"
           style="text-transform: uppercase; letter-spacing: 0.1em;"
         />
         <label for="join-name">Your name</label>
-        <input id="join-name" type="text" bind:value={name} placeholder="Display name" maxlength="200" />
+        <input id="join-name" type="text" bind:value={name} placeholder="Display name" maxlength="30" />
         <button type="submit" class="btn primary" disabled={loading}>
           {loading ? 'Joining…' : 'Join'}
         </button>
@@ -153,14 +161,14 @@
     <div id="panel-create" role="tabpanel" aria-labelledby="tab-create" hidden={mode !== 'create'}>
       <form on:submit|preventDefault={handleCreate}>
         <label for="create-name">Your name</label>
-        <input id="create-name" type="text" bind:value={name} placeholder="Display name" maxlength="200" />
+        <input id="create-name" type="text" bind:value={name} placeholder="Display name" maxlength="30" />
         <label for="admin-pin">Admin PIN</label>
         <input
           id="admin-pin"
           type="password"
           bind:value={adminPin}
           placeholder="Choose a PIN to manage the session"
-          maxlength="100"
+          maxlength="8"
         />
         <p class="hint">You'll need this PIN to control the session. Share the session code (not this PIN) with participants.</p>
         <button type="submit" class="btn primary" disabled={loading}>

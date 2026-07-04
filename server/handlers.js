@@ -5,6 +5,9 @@ const {
   MAX_ADMIN_PIN_ATTEMPTS,
   MAX_PARTICIPANTS,
   MAX_WORDS,
+  SESSION_CODE_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_PIN_LENGTH,
   sessions,
   sanitize,
 } = require('./sessions');
@@ -41,23 +44,24 @@ async function handleMessage(ws, msg, wss) {
 
 function handleJoin(ws, msg, wss) {
   const { sessionId, name } = msg;
-  if (typeof sessionId !== 'string' || !sessionId.trim()) {
-    return send(ws, 'error', { message: 'sessionId required' });
+  const code = typeof sessionId === 'string' ? sessionId.trim().toUpperCase() : '';
+  if (code.length < 1 || code.length > SESSION_CODE_LENGTH) {
+    return send(ws, 'error', { message: 'Invalid session code' });
   }
-  if (typeof name !== 'string' || name.trim().length < 1 || name.length > 200) {
-    return send(ws, 'error', { message: 'name required (1–200 chars)' });
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (trimmed.length < 1 || trimmed.length > MAX_NAME_LENGTH) {
+    return send(ws, 'error', { message: `name required (1–${MAX_NAME_LENGTH} chars)` });
   }
   if (ws.participantId) {
     return send(ws, 'error', { message: 'Already joined a session' });
   }
-  const session = sessions.get(sessionId.trim().toUpperCase());
+  const session = sessions.get(code);
   if (!session) {
     return send(ws, 'error', { message: 'Session not found' });
   }
   if (session.participants.length >= MAX_PARTICIPANTS) {
     return send(ws, 'error', { message: `Session is full (max ${MAX_PARTICIPANTS} participants)` });
   }
-  const trimmed = name.trim();
   if (session.participants.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
     return send(ws, 'error', { message: 'Name already taken in this session' });
   }
@@ -82,7 +86,9 @@ async function handleClaimAdmin(ws, msg, wss) {
   if (!session) return send(ws, 'error', { message: 'Join a session first' });
   if (session.adminId) return send(ws, 'error', { message: 'Admin already claimed' });
   const { pin } = msg;
-  if (typeof pin !== 'string') return send(ws, 'error', { message: 'pin required' });
+  if (typeof pin !== 'string' || pin.length < 1 || pin.length > MAX_PIN_LENGTH) {
+    return send(ws, 'error', { message: `pin required (1–${MAX_PIN_LENGTH} chars)` });
+  }
   if (isAdminPinRateLimited(session, ws.participantId)) {
     return send(ws, 'error', { message: 'Too many incorrect PIN attempts. Try again later.' });
   }

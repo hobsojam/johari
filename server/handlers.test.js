@@ -85,6 +85,21 @@ describe('handleJoin', () => {
     assert.equal(ws.last().type, 'error');
   });
 
+  test('errors if sessionId exceeds the code length', async () => {
+    const ws = makeWs();
+    await handleMessage(ws, { type: 'join', sessionId: 'A'.repeat(10000), name: 'Alice' }, makeWss(ws));
+    assert.equal(ws.last().type, 'error');
+    assert.equal(ws.last().message, 'Invalid session code');
+  });
+
+  test('joins with surrounding whitespace and lowercase in the code', async () => {
+    const session = createSession(PIN_HASH);
+    const ws = makeWs();
+    await handleMessage(ws, { type: 'join', sessionId: `  ${session.id.toLowerCase()}  `, name: 'Alice' }, makeWss(ws));
+    assert.equal(ws.messages[0].type, 'joined');
+    assert.equal(ws.sessionId, session.id);
+  });
+
   test('errors if name is empty', async () => {
     const session = createSession(PIN_HASH);
     const ws = makeWs();
@@ -95,7 +110,7 @@ describe('handleJoin', () => {
   test('errors if name exceeds 200 chars', async () => {
     const session = createSession(PIN_HASH);
     const ws = makeWs();
-    await handleMessage(ws, { type: 'join', sessionId: session.id, name: 'A'.repeat(201) }, makeWss(ws));
+    await handleMessage(ws, { type: 'join', sessionId: session.id, name: 'A'.repeat(31) }, makeWss(ws));
     assert.equal(ws.last().type, 'error');
   });
 
@@ -197,6 +212,12 @@ describe('handleClaimAdmin', () => {
   test('errors if pin is not a string', async () => {
     await handleMessage(ws, { type: 'claim_admin', pin: 1234 }, wss);
     assert.equal(ws.last().type, 'error');
+  });
+
+  test('errors if pin exceeds max length without touching bcrypt', async () => {
+    await handleMessage(ws, { type: 'claim_admin', pin: 'x'.repeat(10000) }, wss);
+    assert.equal(ws.last().type, 'error');
+    assert.equal(session.adminId, null);
   });
 
   test('sets adminId and broadcasts on valid pin', async () => {
