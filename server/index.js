@@ -4,7 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const bcrypt = require('bcryptjs');
-const { sessions, createSession, removeParticipant } = require('./sessions');
+const { sessions, createSession, removeParticipant, MAX_PIN_LENGTH } = require('./sessions');
 const { handleMessage, broadcast } = require('./handlers');
 
 const app = express();
@@ -30,10 +30,11 @@ app.post('/api/sessions', async (req, res) => {
     return res.status(429).json({ error: 'Too many session creation attempts. Try again later.' });
   }
   const { adminPin } = req.body ?? {};
-  if (typeof adminPin !== 'string' || adminPin.trim().length < 1 || adminPin.length > 100) {
-    return res.status(400).json({ error: 'adminPin required (1–100 chars)' });
+  const trimmedPin = typeof adminPin === 'string' ? adminPin.trim() : '';
+  if (trimmedPin.length < 1 || trimmedPin.length > MAX_PIN_LENGTH) {
+    return res.status(400).json({ error: `adminPin required (1–${MAX_PIN_LENGTH} chars)` });
   }
-  const hash = await bcrypt.hash(adminPin.trim(), 10);
+  const hash = await bcrypt.hash(trimmedPin, 10);
   try {
     const session = createSession(hash);
     res.json({ sessionId: session.id });
