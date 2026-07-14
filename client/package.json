@@ -16,6 +16,6 @@
     "@playwright/test": "^1.61.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "vite": "^8.1.2",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }
