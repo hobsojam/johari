@@ -8,6 +8,6 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
-    "ws": "^8.16.0"
+    "ws": "^8.21.1"
   }
 }
