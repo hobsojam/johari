@@ -10,7 +10,7 @@
     "test:browser": "playwright test"
   },
   "dependencies": {
-    "svelte": "^5.57.0"
+    "svelte": "^5.57.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
